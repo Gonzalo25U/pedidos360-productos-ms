@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.pedidos360.productos_ms.dto.ProductoDTO;
+import com.pedidos360.productos_ms.service.ProductoService;
 
 import java.util.List;
 
