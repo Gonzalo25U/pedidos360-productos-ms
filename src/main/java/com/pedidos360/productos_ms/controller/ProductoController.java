@@ -22,6 +22,10 @@ public class ProductoController {
     public ResponseEntity<List<ProductoDTO>> listar() {
         return ResponseEntity.ok(service.listar());
     }
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductoDTO> obtener(@PathVariable Long id) {
+        return ResponseEntity.ok(service.obtener(id));
+    }
 
     @PostMapping
     public ResponseEntity<ProductoDTO> crear(@Valid @RequestBody ProductoDTO dto) {
