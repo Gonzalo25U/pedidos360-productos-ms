@@ -17,25 +17,26 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
+ 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+ 
 
 @Configuration
 @EnableWebSecurity
 @Profile("!local")
 public class SecurityConfig {
-
+ 
     @Value("${azure.audience}")
     private String expectedAudience;
-
+ 
     @Value("${azure.client-id}")
     private String clientId;
-
+ 
     @Value("${cors.allowed-origins}")
     private String allowedOrigin;
-
+ 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -44,7 +45,9 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/productos/**").authenticated()
+                // El catalogo es de lectura publica (como cualquier tienda online real):
+                // se puede navegar sin loguearse. Solo la escritura exige rol Admin.
+                .requestMatchers(HttpMethod.GET, "/api/productos/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/productos/**").hasRole("Admin")
                 .requestMatchers(HttpMethod.PUT, "/api/productos/**").hasRole("Admin")
                 .requestMatchers(HttpMethod.DELETE, "/api/productos/**").hasRole("Admin")
@@ -60,33 +63,37 @@ public class SecurityConfig {
                 .accessDeniedHandler((request, response, ex) ->
                     response.sendError(403, "Prohibido: no cuenta con el rol requerido"))
             );
-
+ 
         return http.build();
     }
-
+ 
     @Bean
     public JwtDecoder jwtDecoder() {
-
+        // Multi-tenant: usamos el JWKS compartido de /common (valido para
+        // cualquier tenant de Azure AD y cuentas personales de Microsoft),
+        // en vez de descubrir la config de UN tenant fijo.
         NimbusJwtDecoder decoder = NimbusJwtDecoder
                 .withJwkSetUri("https://login.microsoftonline.com/common/discovery/v2.0/keys")
                 .build();
-
+ 
         OAuth2TokenValidator<Jwt> timestampValidator = new JwtTimestampValidator();
         OAuth2TokenValidator<Jwt> issuerValidator = new MultiTenantIssuerValidator();
-
+        // Acepta tanto "api://<client-id>" como el client-id sin prefijo: Azure AD a
+        // veces emite el aud en formato distinto segun el tipo de cuenta (ver nota en
+        // AudienceValidator.java).
         OAuth2TokenValidator<Jwt> audienceValidator = new AudienceValidator(List.of(expectedAudience, clientId));
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(timestampValidator, issuerValidator, audienceValidator));
-
+ 
         return decoder;
     }
-
+ 
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(this::extractAuthorities);
         return converter;
     }
-
+ 
     private Collection<GrantedAuthority> extractAuthorities(Jwt jwt) {
         List<String> roles = jwt.getClaimAsStringList("roles");
         Collection<GrantedAuthority> authorities = new ArrayList<>();
@@ -105,7 +112,7 @@ public class SecurityConfig {
         }
         return authorities;
     }
-
+ 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -113,7 +120,7 @@ public class SecurityConfig {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         configuration.setAllowCredentials(true);
-
+ 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
