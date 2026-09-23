@@ -6,3 +6,4 @@ Version 1.4.0: Añadiendo las confirguraciones internas del ms y las configuraci
 Version 1.5.0: Añadiendo DockerFile
 Version 1.6.0: Añadiendo endpoint get por id
 Version 1.7.0: Agregando catálogo de productos de lectura pública
+Version 1.8.0: Implementando RabbitMQ en el microservicio
